@@ -1,10 +1,15 @@
-import datetime
+from datetime import datetime
 from enum import Enum
 import os
 from typing import OrderedDict
 import json
 import fileinput
 
+opening_hand_dict = {"All": OrderedDict()}
+drawn_dict = {"All": OrderedDict()}
+tutored_dict = {"All": OrderedDict()}
+deck_dict = {"All": OrderedDict()}
+sideboard_dict = {"All": OrderedDict()}
 
 class GameIndexArray(Enum):
     expansion = 0,
@@ -41,54 +46,51 @@ def increment_dict(dict, color, card, value, victory):
         dict["All"][card][0] += value
         dict[color][card][0] += value
 
-def analyze_path(path):
-    opening_hand_dict = {"All": OrderedDict()}
-    drawn_dict = {"All": OrderedDict()}
-    tutored_dict = {"All": OrderedDict()}
-    deck_dict = {"All": OrderedDict()}
-    sideboard_dict = {"All": OrderedDict()}
+def process_header(line):
+    split_joiner = ''
+    line_split = line.split(',')
+    for i in range(len(line_split)):
+        if i < GameIndexArray.card.value:
+            continue
+        if line_split[i][0] == '"':
+            split_joiner += line_split[i].lstrip('"')
+            continue
+        if split_joiner != '':
+            if line_split[i][-1] == '"':
+                split_joiner += "," + line_split[i].rstrip('"')
+            else:
+                split_joiner += "," + line_split[i]
+                continue
+        if split_joiner == '':
+            split_joiner = line_split[i]
+        if "opening_hand_" in split_joiner:
+            for d in opening_hand_dict.values():
+                d[split_joiner.lstrip("opening_hand_")] = [0,0]
+            for d in drawn_dict.values():
+                d[split_joiner.lstrip("opening_hand_")] = [0,0]
+            for d in tutored_dict.values():
+                d[split_joiner.lstrip("opening_hand_")] = [0,0]
+            for d in deck_dict.values():
+                d[split_joiner.lstrip("opening_hand_")] = [0,0]
+            for d in sideboard_dict.values():
+                d[split_joiner.lstrip("opening_hand_")] = [0,0]
+        if split_joiner != '':
+            split_joiner = ''
 
+def analyze_path(path):
     started = False
     processed = 0
     finput = fileinput.input(path)
     for line in finput:
+        if not started:
+            process_header(line)
+            started = True
+            continue
         processed += 1
         if processed % 10000 == 0:
             print(f'{datetime.now()}: Processed {processed} entries!')
         line_split = line.split(',')
-        if not started:
-            split_joiner = ''
-            for i in range(len(line_split)):
-                if i < GameIndexArray.card.value:
-                    continue
-                if line_split[i][0] == '"':
-                    split_joiner += line_split[i].lstrip('"')
-                    continue
-                if split_joiner != '':
-                    if line_split[i][-1] == '"':
-                        split_joiner += "," + line_split[i].rstrip('"')
-                    else:
-                        split_joiner += "," + line_split[i]
-                        continue
-                if split_joiner == '':
-                    split_joiner = line_split[i]
-                if "opening_hand_" in split_joiner:
-                    for d in opening_hand_dict.values():
-                        d[split_joiner.lstrip("opening_hand_")] = [0,0]
-                    for d in drawn_dict.values():
-                        d[split_joiner.lstrip("opening_hand_")] = [0,0]
-                    for d in tutored_dict.values():
-                        d[split_joiner.lstrip("opening_hand_")] = [0,0]
-                    for d in deck_dict.values():
-                        d[split_joiner.lstrip("opening_hand_")] = [0,0]
-                    for d in sideboard_dict.values():
-                        d[split_joiner.lstrip("opening_hand_")] = [0,0]
-                if split_joiner != '':
-                    split_joiner = ''
-            started = True
-            continue
-
-
+        
         color = line_split[GameIndexArray.main_colors.value[0]]
         victory = line_split[GameIndexArray.won.value[0]]
         card_idx = 0
